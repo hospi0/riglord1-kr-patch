@@ -25,7 +25,7 @@ FONTS = ('/INO4INIT.DAT', '/TITLE2.MAT', '/TITLEMAT.GRF')
 # ★실행 파일은 «UI 문자열 데이터 구간» 안에서만 쓴다 — 한 글자 문구(直·飛 등)가 코드 영역에서도 «2바이트+NUL» 로 우연히 걸린다(2026-09-25: 2_SRPGED 7326·7666·10058·47098)
 BIN_RANGES = {'/0_OP.BIN': (170000, 175000), '/1_SRPG.BIN': (514000, 534000), '/2_SRPGED.BIN': (510000, 530000)}
 GALMURI11 = 'C:/claude/utils/font/Galmuri-v2.40.3/Galmuri11.bdf'
-KEEP_KANJI = set('技')          # PoC 에서 그대로 보이는 한자(도너로 쓰지 않음)
+KEEP_KANJI = set()             # PoC 에서 그대로 보이는 한자(도너로 쓰지 않음) — «(技Lv + up)» 도 번역해서 비움(2026-09-25)
 HANGUL = re.compile('[\uac00-\ud7a3]')
 
 CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'
