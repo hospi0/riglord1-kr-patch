@@ -57,15 +57,26 @@ def unesc(s):
     return s.replace('\\n', '\n')
 
 
+KIND = {'ui': 'BIN', 'skill': 'SKILL', 'map': 'TEXT', 'msg': 'TEXT'}
+
+
 def load_trans():
-    rows = []
+    """두 형식: PoC(대상 · JP · KO) / 추출본 복사(번호 · 종류 · 자리수 · 예산 · 예시위치 · JP · KO).
+    같은 (대상, JP) 가 여러 파일에 있으면 «뒤 파일»이 이긴다(00_poc → 본번역 순)."""
+    rows = collections.OrderedDict()
     for fn in sorted(glob.glob(os.path.join(ROOT, 'work', 'ko', '*.tsv'))):
         for ln in open(fn, encoding='utf-8'):
             if ln.startswith('#') or not ln.strip():
                 continue
-            t, jp, ko = ln.rstrip('\n').split('\t')[:3]
-            rows.append((t, unesc(jp), squeeze(unesc(ko))))
-    return rows
+            r = ln.rstrip('\n').split('\t')
+            if len(r) >= 7 and r[1] in KIND:
+                t, jp, ko = KIND[r[1]], r[5], r[6]
+            else:
+                t, jp, ko = r[:3]
+            if not ko:
+                continue
+            rows[(t, unesc(jp))] = squeeze(unesc(ko))
+    return [(t, jp, ko) for (t, jp), ko in rows.items()]
 
 
 def read_font(d):
@@ -167,6 +178,12 @@ def main():
                                 j = d.find(pre + jb + tail, j + 1, hi + len(jb) + 2)
             if not hits:
                 err.append('BIN 에 없는 문자열: %s' % jp)
+            for p, lba, off, n, s in hits:
+                put(p, off, n, jb, ko)
+        elif t == 'TEXT':                   # 대사·설명: 실행 파일 밖에서 그 문자열 통째가 나오는 모든 자리
+            hits = [r for r in idx if r[0] not in BINS and strindex_unesc(r[4]) == jp]
+            if not hits:
+                err.append('TEXT 에 없는 문자열: %s' % jp[:40])
             for p, lba, off, n, s in hits:
                 put(p, off, n, jb, ko)
         elif t == 'SKILL':
