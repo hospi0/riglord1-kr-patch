@@ -25,8 +25,11 @@ def squeeze(s):
     return re.sub(r'([,.!?:;])[ ]+(?=\S)', r'\1', s)
 
 
+RAWBYTE = re.compile(r'\\x[0-9A-Fa-f]{2}')   # 원문 머리의 떨어진 1바이트(빌더가 그대로 씀) — 1 B, 폭 0
+
+
 def nbytes(s):
-    n = 0
+    n = len(RAWBYTE.findall(s)); s = RAWBYTE.sub('', s)
     for c in s.replace('\\n', '\n'):
         if ord(c) < 0x80:
             n += 1
@@ -40,7 +43,7 @@ def nbytes(s):
 def px(line):
     """화면 폭. 반각 가타카나는 화면에서 전각으로 바뀌어 보인다(ｽﾄﾗｲｸ → ストライク) → 12px, 탁점·반탁점(ﾞﾟ)은 앞 글자에 붙어 0.
     중괄호 {} 는 «히라가나로 보이기» 표시라 폭 0."""
-    t = TOKEN.sub('', line)
+    t = TOKEN.sub('', RAWBYTE.sub('', line))
     w = 0
     for c in t:
         o = ord(c)
@@ -68,7 +71,7 @@ def check(fn):
         k0 = 0                            # 원문과 같은 머리(추출 때 붙은 앞 바이트 찌꺼기)는 그대로 둔 것 — 검사에서 뺀다
         while k0 < min(len(jp), len(ko)) and jp[k0] == ko[k0]:
             k0 += 1
-        if JPCH.search(TOKEN.sub('', ko[k0:])):
+        if JPCH.search(TOKEN.sub('', RAWBYTE.sub('', ko[k0:]))):
             err.append('%s 일본어 남음: %s' % (where, ko[:40]))
         jl = LINES.split(jp); kl = LINES.split(ko)
         wmax = max(px(x) for x in jl)

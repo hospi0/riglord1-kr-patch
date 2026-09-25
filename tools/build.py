@@ -28,6 +28,7 @@ BIN_RANGES = {'/0_OP.BIN': (170000, 175000), '/1_SRPG.BIN': (513500, 534000), '/
 GALMURI11 = 'C:/claude/utils/font/Galmuri-v2.40.3/Galmuri11.bdf'
 KEEP_KANJI = set()             # PoC 에서 그대로 보이는 한자(도너로 쓰지 않음) — «(技Lv + up)» 도 번역해서 비움(2026-09-25)
 HANGUL = re.compile('[\uac00-\ud7a3]')
+RAWBYTE = re.compile(r'\\x([0-9A-Fa-f]{2})')
 
 CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'
 JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'
@@ -146,6 +147,10 @@ def main():
 
     def enc(s):
         out = bytearray()
+        # \xHH = 원문 머리의 떨어진 1바이트(추출 때 뒤 가나와 붙어 «р｢»·«狽ﾖ» 처럼 보인 것) 그대로 — 2026-09-25
+        m = RAWBYTE.match(s)
+        while m:
+            out.append(int(m.group(1), 16)); s = s[m.end():]; m = RAWBYTE.match(s)
         for ch in s:
             if ch in donor:
                 c = donor[ch]; out += bytes([c >> 8, c & 255])
