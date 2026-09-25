@@ -216,12 +216,14 @@ def main():
         d = file(p)
         start = d.find('あ い う え お　か き く け こ'.encode('cp932'))
         assert start > 0, p
-        for row in range(23):
+        for row in range(24):
+            # ★12·24번째 줄(0부터 11·23)은 전환 줄(«カタカナ/ひらがな もどる 終了») — 번역 단계가 이미 한글(=도너 한자 코드)로
+            #   바꿔 놓아서 «もどる» 로는 못 알아본다. 위치로 건너뛴다(실기 2026-09-25: 첫 쪽 전환 줄이 «호후2 흐히 개»로 덮임).
+            if row in (11, 23):
+                continue
             off = start + 32 * row
             e = d.index(b'\0', off)
             s = bytes(d[off:e]).decode('cp932')
-            if 'もどる' in s:
-                continue
             new = ''.join((next(it) if (0x3041 <= ord(c) <= 0x30FF or 0x4E00 <= ord(c) <= 0x9FFF) and c not in 'ー・' else c) for c in s)
             d[off:e] = enc(new)
         it = iter(kbd)                     # 2_SRPGED 도 같은 배열
