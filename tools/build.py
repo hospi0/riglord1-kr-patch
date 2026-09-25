@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from iso9660 import Iso
 from cdrom_ecc import recalc_sector
-import project, strindex, krglyph, prolog, datatab, staff
+import project, strindex, krglyph, prolog, datatab, staff, prf
 
 BINS = ('/0_OP.BIN', '/1_SRPG.BIN', '/2_SRPGED.BIN')
 FONTS = ('/INO4INIT.DAT', '/TITLE2.MAT', '/TITLEMAT.GRF')
@@ -29,6 +29,8 @@ GALMURI11 = 'C:/claude/utils/font/Galmuri-v2.40.3/Galmuri11.bdf'
 KEEP_KANJI = set()             # PoC 에서 그대로 보이는 한자(도너로 쓰지 않음) — «(技Lv + up)» 도 번역해서 비움(2026-09-25)
 HANGUL = re.compile('[\uac00-\ud7a3]')
 RAWBYTE = re.compile(r'\\x([0-9A-Fa-f]{2})')
+BOSS = {'アヤヒメ': '아야히메', 'ジュウザ': '쥬자', 'ﾍﾞﾙｻﾞﾘｵﾝ': '벨자리온', 'ラーギニ': '라기니', 'ラミューレ': '라뮤레',
+        'ｹﾞﾝﾕｳｻｲ': '겐유사이', 'ロクセリオ': '로크세리오'}   # 보스 이름 표(1_SRPG 570480‥, 40 B 기록) — 본편 용어와 같게
 
 CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ'
 JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ'
@@ -68,6 +70,8 @@ def load_trans():
     같은 (대상, JP) 가 여러 파일에 있으면 «뒤 파일»이 이긴다(00_poc → 본번역 순)."""
     rows = collections.OrderedDict()
     for fn in sorted(glob.glob(os.path.join(ROOT, 'work', 'ko', '*.tsv'))):
+        if os.path.basename(fn) == 'prf.tsv':      # 적 설명(PRF)은 형식이 달라 tools/prf.py 가 따로 쓴다
+            continue
         for ln in open(fn, encoding='utf-8'):
             if ln.startswith('#') or not ln.strip():
                 continue
@@ -127,8 +131,11 @@ def main():
     cand = [c for c in common if 0x88 <= c >> 8 <= 0x9F]
     cand = [c for c in cand if bytes([c >> 8, c & 255]).decode('cp932', 'replace') not in KEEP_KANJI]
     cand.sort(key=lambda c: (freq[bytes([c >> 8, c & 255]).decode('cp932', 'replace')], c))
-    sylls = list(dict.fromkeys(ch for _, _, ko in trans for ch in ko if HANGUL.match(ch)) | dict.fromkeys(kbd).keys()) if False else \
-        list(dict.fromkeys([ch for _, _, ko in trans for ch in ko if HANGUL.match(ch)] + kbd))
+    prf_src, prf_ko, prf_err = prf.check()
+    assert not prf_err, prf_err
+    extra = ''.join(prf_ko.values()) + ''.join(BOSS.values())
+    sylls = list(dict.fromkeys([ch for _, _, ko in trans for ch in ko if HANGUL.match(ch)] + kbd
+                               + [ch for ch in extra if HANGUL.match(ch)]))
     assert len(sylls) <= len(cand), ('도너 부족', len(sylls), len(cand))
     # ★앞 빌드의 배정(work/charmap.tsv)을 이어받는다 — 번역이 조금만 바뀌어도 배정이 통째로 밀리면
     #   이전 빌드의 세이브스테이트(RAM 에 남은 옛 코드 문장)가 새 글꼴로 깨져 보인다(실기 2026-09-25: «특 용턴어…»).
@@ -236,6 +243,34 @@ def main():
         else:
             p, off = t.split('@')
             put(p, int(off), len(jb), jb, ko)
+    # --- 적 정보 화면 설명(PF_xx.PRF 뒤쪽 글, 크기 불변 — tools/prf.py) --------------------------
+    for k, (files, budget, jp) in prf_src.items():
+        if k not in prf_ko:
+            continue
+        b, pad = prf.encode(prf_ko[k], jp, budget, enc)
+        assert pad >= 0 and len(b) == budget, (k, pad)
+        for p in files:
+            d = file(p)
+            assert len(d) - 40964 == budget and orig[p][40964:].decode('cp932').replace('\r\n', '\\n').replace('\x1a', '<EOF>') == jp, p
+            d[40964:] = b
+            n_w[p] += 1
+    # (폭 함수 코드 패치는 하지 않는다 — 사용자 결정 2026-09-26. 인물 이름은 새 게임 때 파티 데이터로 복사되므로
+    #  옛 빌드 세이브엔 반각 공백 이름이 남는다 → 새로 시작하면 해결)
+    # --- 보스 이름 표(40 B 기록, 이름 16 B NUL 채움 — 자료표 추출에서 빠짐, 실기 2026-09-26 «ジュウザ») ------
+    for p in BINS[1:]:
+        d = file(p)
+        for jp, ko in BOSS.items():
+            jb = jp.encode('cp932')
+            pat = jb + bytes(16 - len(jb)) + b'\x00\x40'
+            j = bytes(orig[p]).find(pat)
+            hit = 0
+            while j >= 0:
+                kb = enc(ko)
+                assert len(kb) <= 15, (jp, ko)
+                d[j:j + 16] = kb + bytes(16 - len(kb)); hit += 1; n_w[p] += 1
+                j = bytes(orig[p]).find(pat, j + 1)
+            if not hit:
+                err.append('보스 이름 %s 못 찾음 %s' % (jp, p))
     # --- 반각 이름 네 개(ui 498‥501, 전투 정보 화면) — 자리를 이어 붙여 다시 채우고 포인터만 고친다 ---------
     #   원문: 4 B 정렬 칸 532020 ｼｬｰﾙ · 532028 ｱｹﾋﾞ · 532036 ｸﾛﾔｼｬ · 532044 ﾑｻｼ (뒤는 NUL + 0xFF 채움, 532048 = «No»).
     #   28 B = 샤르\0 아케비\0 쿠로야샤\0 무사시\0 딱 맞다. 포인터는 코드 리터럴(적재 주소 0x06004000) 두 곳씩.
