@@ -4,7 +4,7 @@ r"""엔딩 제작진 명단 /STAFF_01‥16.DG2 — 직함(작은 가타카나)�
 DG2(STAFF 형): 'PP' · u16 BE 가로 픽셀(0x140) · u16 BE 세로 픽셀(0xE0) · 팔레트 256 × u16 BE · 8bpp 320×224.
   (PROLO 형은 u16 LE «256 단위» — 머리가 둘)
 직함 위치: 자동 검출은 뒤쪽 장(이름도 작은 글자)에서 섞여서 «대략 상자»를 손으로 지정 → 상자 안 바탕 아닌 화소의 실제 범위로 좁힌다.
-새 글자: 갈무리9 · 자간 3px(원본 직함은 글자 사이가 넓다) · 금색 한 가지(사용자 지정).
+새 글자: 갈무리9 · 자간 3px(원본 직함은 글자 사이가 넓다) · 모든 장 같은 금색 한 가지(=«게임 디자인» 색, 사용자 지정).
 
   python tools/staff.py          → my files/그래픽/02_엔딩직함(왼원본_오른한글).png
 """
@@ -18,6 +18,7 @@ import bdf2 as bdf
 GALMURI9 = 'C:/claude/utils/font/Galmuri-v2.40.3/Galmuri9.bdf'
 W, H = 320, 224
 TRACK = 3
+GOLD555 = (20, 18, 12)     # 직함 색 = «게임 디자인»에 쓴 금색(160,144,96) 하나로 전부
 
 # 장 번호 → [(대략 상자 x0,y0,x1,y1, 한글 직함, 정렬 r/l/c)] — 격자 확대 그림에서 읽음(2026-09-25)
 ROLES = {
@@ -68,22 +69,27 @@ def build(d, no):
     if not roles:
         return d
     G, asc = bdf.load(GALMURI9)
-    lum = lambda k: ((pal[k] & 31) + ((pal[k] >> 5) & 31) + ((pal[k] >> 10) & 31))
+    target = GOLD555[0] | (GOLD555[1] << 5) | (GOLD555[2] << 10)
+    # ★모든 장·모든 직함에 «게임 디자인»(STAFF_02)에 쓴 색 하나 — RGB555 (20,18,12) = (160,144,96) (사용자 지정 2026-09-26).
+    #   장마다 팔레트가 따로라: 그 색이 팔레트에 «정확히» 있으면 그 칸, 없으면 그림에서 안 쓰는 칸 하나를 그 색으로 바꾼다
+    #   (가장 가까운 색을 쓰면 6·7·8번 장이 붉거나 누렇게 달라진다).
+    exact = [k for k in range(256) if pal[k] & 0x7FFF == target]
+    head = bytearray(d[:518])
+    if exact:
+        gold = exact[0]
+    else:
+        used = set(np.unique(a).tolist())
+        spare = [k for k in range(1, 256) if k not in used]
+        assert spare, 'STAFF_%02d 빈 팔레트 칸 없음' % no
+        gold = spare[-1]
+        struct.pack_into('>H', head, 6 + 2 * gold, target)
     for (x0, y0, x1, y1), text, align in roles:
         box = a[y0:y1 + 1, x0:x1 + 1]
         ys, xs = np.nonzero(box != bg)
         assert len(ys), 'STAFF_%02d %s 상자에 글자 없음' % (no, text)
         ty0, ty1, tx0, tx1 = y0 + ys.min(), y0 + ys.max(), x0 + xs.min(), x0 + xs.max()
-        pts = [(y0 + y, x0 + x) for y, x in zip(ys, xs)]
-        # ★금색 한 가지(사용자 지정 2026-09-26 «그냥 금색 단색으로») — 원본 직함 화소 중 금색 계열(R≥G≥B)에서 밝은 쪽 상위 색.
-        #   (줄별 명암·그림자를 따라 했더니 상자 안 어두운 반사 화소가 뽑혀 글자가 안 보였다)
-        def rgb(k):
-            c = pal[k]
-            return (c & 31), ((c >> 5) & 31), ((c >> 10) & 31)
-        golds = sorted({a[p] for p in pts if rgb(a[p])[0] >= rgb(a[p])[1] >= rgb(a[p])[2] and lum(a[p]) >= 30}, key=lum)
-        gold = golds[-2] if len(golds) >= 2 else golds[-1]     # 가장 밝은 한 점(반짝임)은 피한다
-        for p in pts:
-            a[p] = bg
+        for y, x in zip(ys, xs):
+            a[y0 + y, x0 + x] = bg
         m = text_mask(text, G, asc)
         mh, mw = m.shape
         oy = (ty0 + ty1) // 2 - mh // 2
@@ -93,7 +99,7 @@ def build(d, no):
             for xx in range(mw):
                 if m[yy, xx]:
                     a[oy + yy, ox + xx] = gold
-    return d[:518] + a.tobytes() + d[518 + W * H:]
+    return bytes(head) + a.tobytes() + d[518 + W * H:]
 
 
 if __name__ == '__main__':
