@@ -12,8 +12,10 @@ sys.path.insert(0, HERE)
 from iso9660 import Iso
 import survey
 
-RUN = re.compile(rb'(?:[\x20-\x7e\x0a]|[\x81-\x9f\xe0-\xef][\x40-\x7e\x80-\xfc])+\x00')
-JP = re.compile(r'[\u3041-\u30ff\u4e00-\u9fff\uff01-\uff5e]')
+# \u2605\ubc18\uac01 \uac00\ud0c0\uce74\ub098(0xA1\u20250xDF)\ub3c4 \ub123\ub294\ub2e4 \u2014 \u00ab\uff8a\uff9f\uff9c\uff70:\u653b\u6483\u529b+\u00bb \uac19\uc740 \ubc18\uac01 \ubb38\uc790\uc5f4\uc744 \ub193\ucce4\ub2e4(2026-09-25).
+#   SJIS 2\ubc14\uc774\ud2b8\ub97c \uba3c\uc800 \uc2dc\ub3c4\ud574\uc57c \ub9ac\ub4dc \ub4a4 \ub458\uc9f8 \ubc14\uc774\ud2b8(0xA1\u20250xDF \uac00\ub2a5)\ub97c \ubc18\uac01\uc73c\ub85c \uc798\ubabb \uc77d\uc9c0 \uc54a\ub294\ub2e4.
+RUN = re.compile(rb'(?:[\x81-\x9f\xe0-\xef][\x40-\x7e\x80-\xfc]|[\x20-\x7e\x0a]|[\xa1-\xdf])+\x00')
+JP = re.compile(r'[\u3041-\u30ff\u4e00-\u9fff\uff01-\uff5e\uff61-\uff9f]')
 OUT = os.path.join(ROOT, 'work', 'strings.tsv')
 
 

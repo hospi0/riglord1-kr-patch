@@ -18,12 +18,13 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from iso9660 import Iso
 from cdrom_ecc import recalc_sector
-import project, strindex, krglyph, prolog
+import project, strindex, krglyph, prolog, datatab
 
 BINS = ('/0_OP.BIN', '/1_SRPG.BIN', '/2_SRPGED.BIN')
 FONTS = ('/INO4INIT.DAT', '/TITLE2.MAT', '/TITLEMAT.GRF')
 # ★실행 파일은 «UI 문자열 데이터 구간» 안에서만 쓴다 — 한 글자 문구(直·飛 등)가 코드 영역에서도 «2바이트+NUL» 로 우연히 걸린다(2026-09-25: 2_SRPGED 7326·7666·10058·47098)
-BIN_RANGES = {'/0_OP.BIN': (170000, 175000), '/1_SRPG.BIN': (514000, 534000), '/2_SRPGED.BIN': (510000, 530000)}
+DATA_RANGES = {'/1_SRPG.BIN': (534000, 574000), '/2_SRPGED.BIN': (529500, 570000)}   # 자료표(기술·아이템·장비·몬스터)
+BIN_RANGES = {'/0_OP.BIN': (170000, 175000), '/1_SRPG.BIN': (513500, 534000), '/2_SRPGED.BIN': (509500, 530000)}   # 513612‥ 지명 목록 포함(2026-09-25)
 GALMURI11 = 'C:/claude/utils/font/Galmuri-v2.40.3/Galmuri11.bdf'
 KEEP_KANJI = set()             # PoC 에서 그대로 보이는 한자(도너로 쓰지 않음) — «(技Lv + up)» 도 번역해서 비움(2026-09-25)
 HANGUL = re.compile('[\uac00-\ud7a3]')
@@ -57,7 +58,7 @@ def unesc(s):
     return s.replace('\\n', '\n')
 
 
-KIND = {'ui': 'BIN', 'skill': 'SKILL', 'map': 'TEXT', 'msg': 'TEXT'}
+KIND = {'ui': 'BIN', 'skill': 'SKILL', 'data': 'DATA', 'map': 'TEXT', 'msg': 'TEXT'}
 
 
 def load_trans():
@@ -147,6 +148,14 @@ def main():
             d[i + go + 24 * k:i + go + 24 * k + 24] = g
     # --- 문자열 ----------------------------------------------------------------
     idx = strindex.load()
+    # 자료표 자리: (파일, 원문) → [(오프셋, 쓸 수 있는 바이트)] — 원본 바이트로 계산(쓰기 전에)
+    data_slots = collections.defaultdict(list)
+    for p, (lo, hi) in DATA_RANGES.items():
+        d0 = bytes(file(p))
+        L = datatab.names(d0, lo, hi)
+        W = datatab.widths(d0, L)
+        for o, b, s in L:
+            data_slots[(p, s)].append((o, W[o]))
     err, n_w = [], collections.Counter()
 
     def put(p, off, n, jp_b, ko):
@@ -186,23 +195,19 @@ def main():
                 err.append('TEXT 에 없는 문자열: %s' % jp[:40])
             for p, lba, off, n, s in hits:
                 put(p, off, n, jb, ko)
-        elif t == 'SKILL':
+        elif t in ('SKILL', 'DATA'):          # 자료표(기술·아이템·장비·몬스터 이름) — 두 실행 파일 모두, 표의 이름 칸 폭 안에서
             found = 0
             for p in BINS[1:]:
                 d = file(p)
-                j = d.find(b'\0' + jb + b'\0', 540000)
-                while j >= 0:
-                    off = j + 1
-                    tail = bytes(d[off + len(jb):off + 21])
-                    if tail.strip(b'\0') == b'':
-                        b = enc(ko)
-                        if len(b) > 21:
-                            err.append('SKILL 예산 21B < %dB: %s' % (len(b), ko))
-                        else:
-                            d[off:off + 21] = b + bytes(21 - len(b)); found += 1; n_w[p] += 1
-                    j = d.find(b'\0' + jb + b'\0', j + 1)
+                for off, width in data_slots.get((p, jp), []):
+                    if bytes(d[off:off + len(jb)]) != jb:
+                        err.append('DATA %s@%d 원문 불일치' % (p, off)); continue
+                    b = enc(ko)
+                    if len(b) > width:
+                        err.append('DATA %s@%d 칸 %dB < %dB: %s' % (p, off, width, len(b), ko)); continue
+                    d[off:off + width] = b + bytes(width - len(b)); found += 1; n_w[p] += 1
             if not found:
-                err.append('SKILL 못 찾음: %s' % jp)
+                err.append('DATA 못 찾음: %s' % jp)
         else:
             p, off = t.split('@')
             put(p, int(off), len(jb), jb, ko)
