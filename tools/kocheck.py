@@ -7,7 +7,7 @@ r"""번역 검사 — «쓰는 순간» 돌린다(ROM 불필요).
 막는 것:
   - 바이트 예산 초과: 한글 1자 = 2 B(도너 코드), ASCII(반각 공백·영숫자·%b 등) = 1 B, 그 밖(전각 부호 등) = 2 B. 예산 = 예산 열.
   - 제어 토큰 불일치: %b %h %H %m0 %m1 %V0 %V100 %s0 등 — 개수·종류가 원문과 같아야 한다.
-  - 줄 폭: `\n` 으로 나뉜 각 줄의 화면 폭이 원문 같은 순번 줄 중 가장 넓은 줄보다 넓으면 오류
+  - 줄 폭: `\n`(과 새 쪽 %h·%a·화자 머리 %H)으로 나뉜 각 줄의 화면 폭이 원문 같은 순번 줄 중 가장 넓은 줄보다 넓으면 오류
     (글리프 12px: 전각·한글 = 12, 반각 = 6 — 리그로드 사가 2 실측과 같은 렌더러).
   - 번역에 남은 가나·한자(가운뎃점 ・ 과 반각 낫표 ｢｣ 는 허용, 원문과 같은 머리 찌꺼기는 제외).
   - data(자료표 이름)의 줄 폭은 원문 폭과 목록 칸 폭(96px) 중 큰 쪽까지.
@@ -17,6 +17,7 @@ import glob, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKEN = re.compile(r'%[A-Za-z][0-9]*')
+LINES = re.compile(r'\\n|%[hHa]')   # 줄바꿈 \n, 새 쪽 %h·%a, 화자 머리 %H — 그 뒤는 줄 첫머리부터
 JPCH = re.compile(r'[ぁ-ヺー-ヿ一-鿿｡､-ﾟ]')      # ・(가운뎃점)·｢｣(반각 낫표, 1 B)는 한글 문장에도 쓴다
 
 
@@ -69,7 +70,7 @@ def check(fn):
             k0 += 1
         if JPCH.search(TOKEN.sub('', ko[k0:])):
             err.append('%s 일본어 남음: %s' % (where, ko[:40]))
-        jl = jp.split('\\n'); kl = ko.split('\\n')
+        jl = LINES.split(jp); kl = LINES.split(ko)
         wmax = max(px(x) for x in jl)
         if kind == 'data':                # 자료표 이름은 목록 칸(전각 8자 = 96px)까지
             wmax = max(wmax, 96)
