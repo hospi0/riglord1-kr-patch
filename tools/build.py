@@ -125,7 +125,23 @@ def main():
     sylls = list(dict.fromkeys(ch for _, _, ko in trans for ch in ko if HANGUL.match(ch)) | dict.fromkeys(kbd).keys()) if False else \
         list(dict.fromkeys([ch for _, _, ko in trans for ch in ko if HANGUL.match(ch)] + kbd))
     assert len(sylls) <= len(cand), ('도너 부족', len(sylls), len(cand))
-    donor = {s: cand[k] for k, s in enumerate(sylls)}
+    # ★앞 빌드의 배정(work/charmap.tsv)을 이어받는다 — 번역이 조금만 바뀌어도 배정이 통째로 밀리면
+    #   이전 빌드의 세이브스테이트(RAM 에 남은 옛 코드 문장)가 새 글꼴로 깨져 보인다(실기 2026-09-25: «특 용턴어…»).
+    prev = {}
+    snap_path = os.path.join(ROOT, 'work', 'charmap.tsv')
+    if os.path.exists(snap_path):
+        for ln in open(snap_path, encoding='utf-8'):
+            r = ln.rstrip('\n').split('\t')
+            if len(r) >= 2:
+                prev[r[0]] = int(r[1], 16)
+    candset = set(cand)
+    donor = {s: prev[s] for s in sylls if s in prev and prev[s] in candset}
+    used = set(donor.values())
+    free = iter(c for c in cand if c not in used)
+    for s in sylls:
+        if s not in donor:
+            donor[s] = next(free)
+    print('  배정: 앞 빌드에서 이어받음 %d · 새로 %d' % (sum(1 for s in sylls if s in prev and donor[s] == prev[s]), sum(1 for s in sylls if not (s in prev and donor[s] == prev[s]))))
     print('한글 음절 %d → 도너 %d개 중 사용(공통 코드 %d)' % (len(sylls), len(cand), len(common)))
 
     def enc(s):
