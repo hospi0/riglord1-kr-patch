@@ -7,33 +7,43 @@ r"""번역 검사 — «쓰는 순간» 돌린다(ROM 불필요).
 막는 것:
   - 바이트 예산 초과: 한글 1자 = 2 B(도너 코드), ASCII(반각 공백·영숫자·%b 등) = 1 B, 그 밖(전각 부호 등) = 2 B. 예산 = 예산 열.
   - 제어 토큰 불일치: %b %h %H %m0 %m1 %V0 %V100 %s0 등 — 개수·종류가 원문과 같아야 한다.
-  - 줄 폭: `\n` 으로 나뉜 각 줄의 화면 폭이 원문 같은 순번 줄 중 가장 넓은 줄보다 넓으면 오류
+  - 줄 폭: `\n`(과 새 쪽 %h·%a·화자 머리 %H)으로 나뉜 각 줄의 화면 폭이 원문 같은 순번 줄 중 가장 넓은 줄보다 넓으면 오류
     (글리프 12px: 전각·한글 = 12, 반각 = 6 — 리그로드 사가 2 실측과 같은 렌더러).
-  - 번역에 남은 가나·한자.
+  - 번역에 남은 가나·한자(가운뎃점 ・ 과 반각 낫표 ｢｣ 는 허용, 원문과 같은 머리 찌꺼기는 제외).
+  - data(자료표 이름)의 줄 폭은 원문 폭과 목록 칸 폭(96px) 중 큰 쪽까지.
 규칙(자동): 문장부호(, . ! ? : ;) 뒤 공백은 빌더가 지운다 — 검사도 지운 뒤 기준.
 """
 import glob, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKEN = re.compile(r'%[A-Za-z][0-9]*')
-JPCH = re.compile(r'[ぁ-ヿ一-鿿｡-ﾟ]')
+LINES = re.compile(r'\\n|%[hHa]')   # 줄바꿈 \n, 새 쪽 %h·%a, 화자 머리 %H — 그 뒤는 줄 첫머리부터
+JPCH = re.compile(r'[ぁ-ヺー-ヿ一-鿿｡､-ﾟ]')      # ・(가운뎃점)·｢｣(반각 낫표, 1 B)는 한글 문장에도 쓴다
 
 
 def squeeze(s):
     return re.sub(r'([,.!?:;])[ ]+(?=\S)', r'\1', s)
 
 
+RAWBYTE = re.compile(r'\\x[0-9A-Fa-f]{2}')   # 원문 머리의 떨어진 1바이트(빌더가 그대로 씀) — 1 B, 폭 0
+
+
 def nbytes(s):
-    n = 0
+    n = len(RAWBYTE.findall(s)); s = RAWBYTE.sub('', s)
     for c in s.replace('\\n', '\n'):
-        n += 1 if ord(c) < 0x80 else 2
+        if ord(c) < 0x80:
+            n += 1
+        elif '\uff61' <= c <= '\uff9f':      # 반각 가타카나·낫표(｢｣) = cp932 1 B
+            n += 1
+        else:
+            n += 2
     return n
 
 
 def px(line):
     """화면 폭. 반각 가타카나는 화면에서 전각으로 바뀌어 보인다(ｽﾄﾗｲｸ → ストライク) → 12px, 탁점·반탁점(ﾞﾟ)은 앞 글자에 붙어 0.
     중괄호 {} 는 «히라가나로 보이기» 표시라 폭 0."""
-    t = TOKEN.sub('', line)
+    t = TOKEN.sub('', RAWBYTE.sub('', line))
     w = 0
     for c in t:
         o = ord(c)
@@ -58,10 +68,15 @@ def check(fn):
             err.append('%s 예산 %dB < %dB: %s' % (where, budget, nbytes(ko), ko[:40]))
         if sorted(TOKEN.findall(jp)) != sorted(TOKEN.findall(ko)):
             err.append('%s 토큰 불일치 JP%s KO%s' % (where, TOKEN.findall(jp), TOKEN.findall(ko)))
-        if JPCH.search(TOKEN.sub('', ko)):
+        k0 = 0                            # 원문과 같은 머리(추출 때 붙은 앞 바이트 찌꺼기)는 그대로 둔 것 — 검사에서 뺀다
+        while k0 < min(len(jp), len(ko)) and jp[k0] == ko[k0]:
+            k0 += 1
+        if JPCH.search(TOKEN.sub('', RAWBYTE.sub('', ko[k0:]))):
             err.append('%s 일본어 남음: %s' % (where, ko[:40]))
-        jl = jp.split('\\n'); kl = ko.split('\\n')
+        jl = LINES.split(jp); kl = LINES.split(ko)
         wmax = max(px(x) for x in jl)
+        if kind == 'data':                # 자료표 이름은 목록 칸(전각 8자 = 96px)까지
+            wmax = max(wmax, 96)
         for k, line in enumerate(kl):
             if px(line) > wmax:
                 err.append('%s %d번째 줄 폭 %dpx > 원문 최대 %dpx: %s' % (where, k + 1, px(line), wmax, line[:30]))
