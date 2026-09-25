@@ -9,14 +9,14 @@ r"""번역 검사 — «쓰는 순간» 돌린다(ROM 불필요).
   - 제어 토큰 불일치: %b %h %H %m0 %m1 %V0 %V100 %s0 등 — 개수·종류가 원문과 같아야 한다.
   - 줄 폭: `\n` 으로 나뉜 각 줄의 화면 폭이 원문 같은 순번 줄 중 가장 넓은 줄보다 넓으면 오류
     (글리프 12px: 전각·한글 = 12, 반각 = 6 — 리그로드 사가 2 실측과 같은 렌더러).
-  - 번역에 남은 가나·한자.
+  - 번역에 남은 가나·한자(가운뎃점 ・ 과 반각 낫표 ｢｣ 는 허용).
 규칙(자동): 문장부호(, . ! ? : ;) 뒤 공백은 빌더가 지운다 — 검사도 지운 뒤 기준.
 """
 import glob, os, re, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKEN = re.compile(r'%[A-Za-z][0-9]*')
-JPCH = re.compile(r'[ぁ-ヿ一-鿿｡-ﾟ]')
+JPCH = re.compile(r'[ぁ-ヺー-ヿ一-鿿｡､-ﾟ]')      # ・(가운뎃점)·｢｣(반각 낫표, 1 B)는 한글 문장에도 쓴다
 
 
 def squeeze(s):
@@ -26,7 +26,12 @@ def squeeze(s):
 def nbytes(s):
     n = 0
     for c in s.replace('\\n', '\n'):
-        n += 1 if ord(c) < 0x80 else 2
+        if ord(c) < 0x80:
+            n += 1
+        elif '\uff61' <= c <= '\uff9f':      # 반각 가타카나·낫표(｢｣) = cp932 1 B
+            n += 1
+        else:
+            n += 2
     return n
 
 
