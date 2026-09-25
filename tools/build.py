@@ -18,7 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from iso9660 import Iso
 from cdrom_ecc import recalc_sector
-import project, strindex, krglyph, prolog, datatab
+import project, strindex, krglyph, prolog, datatab, staff
 
 BINS = ('/0_OP.BIN', '/1_SRPG.BIN', '/2_SRPGED.BIN')
 FONTS = ('/INO4INIT.DAT', '/TITLE2.MAT', '/TITLEMAT.GRF')
@@ -231,6 +231,12 @@ def main():
     pd = file('/PROLO_00.DG2')
     pd[:] = prolog.build(bytes(pd))
     n_w['/PROLO_00.DG2'] += 1
+    # --- 엔딩 제작진 명단 직함(STAFF_xx.DG2, 금색 한 가지, 크기 불변) ---------------------
+    for no in sorted(staff.ROLES):
+        sp = '/STAFF_%02d.DG2' % no
+        sd = file(sp)
+        sd[:] = staff.build(bytes(sd), no)
+        n_w[sp] += 1
     # --- 이름 입력 자판 ---------------------------------------------------------
     it = iter(kbd)
     for p in BINS[1:]:
