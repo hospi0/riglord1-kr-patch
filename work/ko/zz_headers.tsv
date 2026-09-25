@@ -1,0 +1,31 @@
+# 화자 머리만 있는 문자열(추출 누락분, 2026-09-26 실기 「[딸탑の戦철]」) — 대상 · JP · KO. 예산 = 원문 이름 바이트(앞뒤 문자열과 NUL 로 붙어 있음)
+TEXT	%H%m1%V100［%m0看守%m1］%V0%m0\n	%H%m1%V100［%m0간수%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0若い騎士%m1］%V0%m0\n	%H%m1%V100［%m0젊은기사%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0兵士%m1］%V0%m0\n	%H%m1%V100［%m0병사%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0女の声%m1］%V0%m0\n	%H%m1%V100［%m0여자%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0町の人%m1］%V0%m0\n	%H%m1%V100［%m0주민%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0山賊%m1］%V0%m0\n	%H%m1%V100［%m0산적%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0下忍%m1］%V0%m0\n	%H%m1%V100［%m0닌자%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0魔導士%m1］%V0%m0\n	%H%m1%V100［%m0마도사%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0女王%m1］%V0%m0\n	%H%m1%V100［%m0여왕%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0海賊%m1］%V0%m0\n	%H%m1%V100［%m0해적%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0女海賊%m1］%V0%m0\n	%H%m1%V100［%m0여해적%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0妖精%m1］%V0%m0\n	%H%m1%V100［%m0요정%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0女の子の声%m1］%V0%m0\n	%H%m1%V100［%m0소녀 음성%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0男の声%m1］%V0%m0\n	%H%m1%V100［%m0목소리%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0教団長%m1］%V0%m0\n	%H%m1%V100［%m0교단장%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0女の子%m1］%V0%m0\n	%H%m1%V100［%m0소녀%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0海賊手下%m1］%V0%m0\n	%H%m1%V100［%m0해적졸개%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0賢者%m1］%V0%m0\n	%H%m1%V100［%m0현자%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0見張りＡ%m1］%V0%m0\n	%H%m1%V100［%m0보초 A%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0見張りＢ%m1］%V0%m0\n	%H%m1%V100［%m0보초 B%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0忍者戦士%m1］%V0%m0\n	%H%m1%V100［%m0닌자전사%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0式神%m1］%V0%m0\n	%H%m1%V100［%m0식신%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0王子%m1］%V0%m0\n	%H%m1%V100［%m0왕자%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0僧侶%m1］%V0%m0\n	%H%m1%V100［%m0승려%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0老騎士%m1］%V0%m0\n	%H%m1%V100［%m0노기사%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0獣面の戦士%m1］%V0%m0\n	%H%m1%V100［%m0수인 전사%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0大男%m1］%V0%m0\n	%H%m1%V100［%m0거한%m1］%V0%m0\n
+TEXT	%H%m1%V100［%m0男%m1］%V0%m0\n	%H%m1%V100［%m0남%m1］%V0%m0\n
+# ITEMHELP.MSG 첫 문장 — 목차 표 바로 뒤에 NUL 없이 붙어(표 끝 2E 88 + 82 C7…) 색인기가 버렸다(실기 2026-09-26). 위치 지정.
+/ITEMHELP.MSG@952	どなたかお一人のＨＰを１００回復することができます。	누군가 한 명의 ＨＰ를 100 회복할 수 있습니다.

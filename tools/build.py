@@ -56,7 +56,8 @@ def squeeze(s):
 
 
 def unesc(s):
-    return s.replace('\\n', '\n')
+    """색인(strindex)과 같은 풀이: \\n → 개행 · \\t → 탭 · \\\\ → 백슬래시. \\xHH(떨어진 1바이트)는 enc() 가 푼다."""
+    return re.sub(r'\\(\\|n|t)', lambda m: {'\\': '\\', 'n': '\n', 't': '\t'}[m.group(1)], s)
 
 
 KIND = {'ui': 'BIN', 'skill': 'SKILL', 'data': 'DATA', 'map': 'TEXT', 'msg': 'TEXT'}
@@ -106,10 +107,13 @@ def main():
     ent = {r[0]: r for r in iso.walk()}
     data = {}
 
+    orig = {}
+
     def file(p):
         if p not in data:
             r = ent[p]
-            data[p] = bytearray(iso.read(r[1], r[2]))
+            orig[p] = iso.read(r[1], r[2])
+            data[p] = bytearray(orig[p])
         return data[p]
 
     trans = load_trans()
@@ -181,7 +185,7 @@ def main():
 
     def put(p, off, n, jp_b, ko):
         d = file(p)
-        if bytes(d[off:off + n]) != jp_b:
+        if orig[p][off:off + n] != jp_b:          # ★원본 기준 — PoC 가 먼저 쓴 자리도 뒤 파일(본번역)이 덮는다
             err.append('%s@%d 원문 불일치' % (p, off)); return
         b = enc(ko)
         if len(b) > n:
@@ -221,7 +225,7 @@ def main():
             for p in BINS[1:]:
                 d = file(p)
                 for off, width in data_slots.get((p, jp), []):
-                    if bytes(d[off:off + len(jb)]) != jb:
+                    if orig[p][off:off + len(jb)] != jb:
                         err.append('DATA %s@%d 원문 불일치' % (p, off)); continue
                     b = enc(ko)
                     if len(b) > width:
@@ -232,6 +236,27 @@ def main():
         else:
             p, off = t.split('@')
             put(p, int(off), len(jb), jb, ko)
+    # --- 반각 이름 네 개(ui 498‥501, 전투 정보 화면) — 자리를 이어 붙여 다시 채우고 포인터만 고친다 ---------
+    #   원문: 4 B 정렬 칸 532020 ｼｬｰﾙ · 532028 ｱｹﾋﾞ · 532036 ｸﾛﾔｼｬ · 532044 ﾑｻｼ (뒤는 NUL + 0xFF 채움, 532048 = «No»).
+    #   28 B = 샤르\0 아케비\0 쿠로야샤\0 무사시\0 딱 맞다. 포인터는 코드 리터럴(적재 주소 0x06004000) 두 곳씩.
+    #   ★홀수 시작 주소는 괜찮다 — 원문에도 «ﾊﾟﾜｰ:攻撃力» 처럼 반각 뒤 전각이 홀수 자리에 오는 문자열이 있어 렌더러는 바이트 단위.
+    d = file('/1_SRPG.BIN')
+    NAMES_LO, NAMES_HI, LOAD = 532020, 532048, 0x06004000
+    old = [(532020, 'ｼｬｰﾙ', '샤르'), (532028, 'ｱｹﾋﾞ', '아케비'), (532036, 'ｸﾛﾔｼｬ', '쿠로야샤'), (532044, 'ﾑｻｼ', '무사시')]
+    blob, pos = bytearray(), {}
+    for o, jp, ko in old:
+        assert bytes(d[o:o + len(jp.encode('cp932')) + 1]) == jp.encode('cp932') + b'\0', ('반각 이름 원문 불일치', o, jp)
+        assert all(ch in donor for ch in ko), ('반각 이름 음절 도너 없음', ko)
+        pos[o] = NAMES_LO + len(blob)
+        blob += enc(ko) + b'\0'
+    assert NAMES_LO + len(blob) <= NAMES_HI, ('반각 이름 자리 넘침', len(blob))
+    ptrs = {o: [m.start() for m in re.finditer(re.escape(struct.pack('>I', LOAD + o)), bytes(d))] for o, _, _ in old}
+    assert all(len(v) == 2 for v in ptrs.values()), ('반각 이름 포인터 수', ptrs)
+    d[NAMES_LO:NAMES_HI] = bytes(blob) + b'\xff' * (NAMES_HI - NAMES_LO - len(blob))
+    for o, where in ptrs.items():
+        for w in where:
+            struct.pack_into('>I', d, w, LOAD + pos[o])
+    n_w['/1_SRPG.BIN'] += 4
     # --- 오프닝 내레이션 그림(PROLO_00.DG2, 크기 불변) -----------------------------
     pd = file('/PROLO_00.DG2')
     pd[:] = prolog.build(bytes(pd))

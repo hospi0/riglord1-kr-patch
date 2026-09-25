@@ -73,6 +73,15 @@ def check(fn):
             k0 += 1
         if JPCH.search(TOKEN.sub('', RAWBYTE.sub('', ko[k0:]))):
             err.append('%s 일본어 남음: %s' % (where, ko[:40]))
+        if kind in ('ui', 'data') and '\\n' not in ko and '%b' not in ko and re.search(r'\S \S', squeeze(ko)) \
+                and not ko.startswith('%m1') and '[' not in ko and px(jp) <= 288:   # 288 = 가운데 정렬 폭
+            # ★가운데 정렬 폭 함수·기술 이름 복사가 반각 공백(0x20)에서 멈춘다(실기 2026-09-26) → 전각 «　» (tools/uispace.py)
+            err.append('%s 한 줄 UI·이름에 반각 공백(전각 «　» 로): %s' % (where, ko[:40]))
+        if kind == 'ui' and ko.startswith(' ') and not jp.startswith(' '):
+            # 이름 뒤에 붙는 조각(«(이름) ｢기술｣ 습득!»)이 반각 공백으로 시작하면 폭을 이름까지만 잰다(실기 2026-09-26)
+            err.append('%s 원문에 없는 앞 반각 공백(전각 «　» 로): %r' % (where, ko[:20]))
+        if '…' in ko[k0:]:              # ★«…»(8163)은 본문 글꼴에 없어 빈칸으로 나온다(실기 2026-09-26) → 반각 «...»
+            err.append('%s «…» 금지(글꼴에 없음, ... 로): %s' % (where, ko[:40]))
         jl = LINES.split(jp); kl = LINES.split(ko)
         wmax = max(px(x) for x in jl)
         if kind == 'data':                # 자료표 이름은 목록 칸(전각 8자 = 96px)까지
