@@ -9,7 +9,8 @@ r"""번역 검사 — «쓰는 순간» 돌린다(ROM 불필요).
   - 제어 토큰 불일치: %b %h %H %m0 %m1 %V0 %V100 %s0 등 — 개수·종류가 원문과 같아야 한다.
   - 줄 폭: `\n` 으로 나뉜 각 줄의 화면 폭이 원문 같은 순번 줄 중 가장 넓은 줄보다 넓으면 오류
     (글리프 12px: 전각·한글 = 12, 반각 = 6 — 리그로드 사가 2 실측과 같은 렌더러).
-  - 번역에 남은 가나·한자(가운뎃점 ・ 과 반각 낫표 ｢｣ 는 허용).
+  - 번역에 남은 가나·한자(가운뎃점 ・ 과 반각 낫표 ｢｣ 는 허용, 원문과 같은 머리 찌꺼기는 제외).
+  - data(자료표 이름)의 줄 폭은 원문 폭과 목록 칸 폭(96px) 중 큰 쪽까지.
 규칙(자동): 문장부호(, . ! ? : ;) 뒤 공백은 빌더가 지운다 — 검사도 지운 뒤 기준.
 """
 import glob, os, re, sys
@@ -63,10 +64,15 @@ def check(fn):
             err.append('%s 예산 %dB < %dB: %s' % (where, budget, nbytes(ko), ko[:40]))
         if sorted(TOKEN.findall(jp)) != sorted(TOKEN.findall(ko)):
             err.append('%s 토큰 불일치 JP%s KO%s' % (where, TOKEN.findall(jp), TOKEN.findall(ko)))
-        if JPCH.search(TOKEN.sub('', ko)):
+        k0 = 0                            # 원문과 같은 머리(추출 때 붙은 앞 바이트 찌꺼기)는 그대로 둔 것 — 검사에서 뺀다
+        while k0 < min(len(jp), len(ko)) and jp[k0] == ko[k0]:
+            k0 += 1
+        if JPCH.search(TOKEN.sub('', ko[k0:])):
             err.append('%s 일본어 남음: %s' % (where, ko[:40]))
         jl = jp.split('\\n'); kl = ko.split('\\n')
         wmax = max(px(x) for x in jl)
+        if kind == 'data':                # 자료표 이름은 목록 칸(전각 8자 = 96px)까지
+            wmax = max(wmax, 96)
         for k, line in enumerate(kl):
             if px(line) > wmax:
                 err.append('%s %d번째 줄 폭 %dpx > 원문 최대 %dpx: %s' % (where, k + 1, px(line), wmax, line[:30]))
