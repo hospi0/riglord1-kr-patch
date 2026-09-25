@@ -31,8 +31,16 @@ def nbytes(s):
 
 
 def px(line):
+    """화면 폭. 반각 가타카나는 화면에서 전각으로 바뀌어 보인다(ｽﾄﾗｲｸ → ストライク) → 12px, 탁점·반탁점(ﾞﾟ)은 앞 글자에 붙어 0.
+    중괄호 {} 는 «히라가나로 보이기» 표시라 폭 0."""
     t = TOKEN.sub('', line)
-    return sum(6 if ord(c) < 0x80 or 0xFF61 <= ord(c) <= 0xFF9F else 12 for c in t)
+    w = 0
+    for c in t:
+        o = ord(c)
+        if c in 'ﾞﾟ{}':
+            continue
+        w += 6 if o < 0x80 else 12
+    return w
 
 
 def check(fn):
